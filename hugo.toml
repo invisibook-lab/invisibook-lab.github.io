@@ -19,7 +19,7 @@ hasCJKLanguage = true
 home = ["HTML", "RSS"]
 
 [params]
-  header_image = "img/home-bg-jeep.jpg"
+  header_image = "img/invisibook_logo.png"
   SEOTitle = "Invisibook"
   description = "Invisibook Lab - Decentralized privacy order book"
   keyword = "Invisibook, 技术博客, 编程, 开发"
