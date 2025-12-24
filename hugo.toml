@@ -21,9 +21,9 @@ home = ["HTML", "RSS"]
 [params]
   header_image = "img/home-bg-jeep.jpg"
   SEOTitle = "Invisibook"
-  description = "Invisibook Lab - 探索技术，分享知识"
+  description = "Invisibook Lab - Decentralized privacy order book"
   keyword = "Invisibook, 技术博客, 编程, 开发"
-  slogan = "探索技术，分享知识"
+  slogan = "Decentralized privacy order book"
   upstreamAttribution = true
 
   image_404 = "img/404-bg.jpg"
@@ -42,7 +42,7 @@ home = ["HTML", "RSS"]
   algolia_apiKey = ""
 
   # Sidebar settings
-  sidebar_about_description = "探索技术，分享知识"
+  sidebar_about_description = "Decentralized privacy order book"
   #sidebar_avatar = "img/avatar.jpg"
 
   featured_tags = true 
