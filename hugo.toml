@@ -73,6 +73,9 @@ home = ["HTML", "RSS"]
   # Last posts
   last_posts = true
 
+  # Custom CSS
+  custom_css = ["css/custom.css"]
+
   [params.social]
   rss            = true 
   email          = ""

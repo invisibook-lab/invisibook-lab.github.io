@@ -1,0 +1,23 @@
+/* Custom styles for Invisibook */
+
+/* Header background - Deep dark color with subtle gradient */
+.intro-header {
+    background: linear-gradient(135deg, #1a1a1a 0%, #000000 100%) !important;
+    background-color: #000000 !important;
+    background-image: none !important;
+}
+
+/* Optional: Add a subtle pattern or keep it solid black */
+/* If you want pure black, use: */
+/* .intro-header {
+    background: #000000 !important;
+    background-image: none !important;
+} */
+
+/* Ensure text is visible on dark background */
+.intro-header .site-heading h1,
+.intro-header .site-heading .subheading {
+    color: #ffffff;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
