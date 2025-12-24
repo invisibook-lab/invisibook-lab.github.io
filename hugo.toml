@@ -43,7 +43,7 @@ home = ["HTML", "RSS"]
 
   # Sidebar settings
   sidebar_about_description = "Decentralized privacy order book"
-  #sidebar_avatar = "img/avatar.jpg"
+  sidebar_avatar = "img/invisibook_logo.png"
 
   featured_tags = true 
   featured_condition_size = 1 
@@ -68,7 +68,7 @@ home = ["HTML", "RSS"]
 
   friends = false
   bookmarks = false
-  about_me = false
+  about_me = true
 
   # Last posts
   last_posts = true
