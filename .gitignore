@@ -1,0 +1,25 @@
+# Hugo generated files
+/public/
+
+# Hugo cache files
+/resources/_gen/
+/.hugo_build.lock
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor directories and files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+
