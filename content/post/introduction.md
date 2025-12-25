@@ -1,7 +1,6 @@
 ---
 layout:     post
-title:      "隐私去中心化订单薄"
-subtitle:   "Invisibook - Decentralized Privacy Order Book"
+title:      "Invisibook, 隐私去中心化订单薄"
 date:       2025-12-25
 author:     "Invisibook Lab"
 tags:       ["区块链", "去中心化", "隐私", "订单簿", "DeFi"]
