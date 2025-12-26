@@ -83,7 +83,9 @@ categories: ["Tech"]
 
 最好采用秘密共享的MPC，参考框架：https://github.com/renegade-fi/ark-mpc
 
-（混淆电路模式MPC参考，不建议使用：https://eprint.iacr.org/2017/030.pdf https://github.com/emp-toolkit/emp-ag2pc ）
+（混淆电路模式MPC参考，不建议使用：  
+https://eprint.iacr.org/2017/030.pdf    
+https://github.com/emp-toolkit/emp-ag2pc ）
 
 ### Collaborative ZK 证明
 
