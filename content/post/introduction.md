@@ -81,7 +81,10 @@ categories: ["Tech"]
 
 恶意模型下的MPC，进行点对点订单结算
 
-最好采用秘密共享的MPC，参考框架：https://github.com/renegade-fi/ark-mpc
+最好采用秘密共享的MPC，参考框架：  
+https://github.com/renegade-fi/ark-mpc   
+https://github.com/data61/MP-SPDZ   
+
 
 （混淆电路模式MPC参考，不建议使用：  
 https://eprint.iacr.org/2017/030.pdf    
