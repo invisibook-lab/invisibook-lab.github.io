@@ -1,7 +1,7 @@
 ---
 layout:     post
 title:      "SPDZ MAC 恶意模型原理"
-date:       2026-01-05
+date:       2026-01-11
 author:     "Invisibook Lab"
 tags:       ["MPC", "SPDZ", "MAC", "密码学"]
 categories: ["Tech"]
