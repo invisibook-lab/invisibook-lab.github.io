@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "如何理解 SPDZ 中信息论 MAC 如何防止篡改"
+title:      "SPDZ MAC 恶意模型原理"
 date:       2026-01-05
 author:     "Invisibook Lab"
 tags:       ["MPC", "SPDZ", "MAC", "密码学"]
