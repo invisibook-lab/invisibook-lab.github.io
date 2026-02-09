@@ -7,7 +7,6 @@ tags:       ["区块链", "去中心化", "隐私", "订单簿", "DeFi"]
 categories: ["Tech"]
 ---
 
-# **What is Invisibook**
 
 ## **Introduction**
 
