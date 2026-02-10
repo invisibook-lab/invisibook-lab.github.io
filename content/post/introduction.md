@@ -83,7 +83,7 @@ A fully cryptographic privacy order book (using zk-SNARKs, FHE, homomorphic encr
 - Price discovery power gradually flows back from CEX to Ethereum on-chain — when enough professional capital decides that “on-chain privacy order book execution quality + privacy > CEX convenience + tail risks,” a structural liquidity migration will occur.
 - This is not merely “a more private Uniswap”; it is building Ethereum’s own hybrid “dark pool + public order book” infrastructure, upgrading Ethereum from a “settlement layer + spot AMM playground” to a full-fledged financial primitive layer with complete market microstructure (price formation).
 - In the long run, this significantly reduces the “traffic tax” and “trust tax” that CEXs impose on the Bitcoin/Ethereum ecosystem, giving Ethereum genuine trading sovereignty and control over its own destiny.
-1. **Increase ETH value capture**
+2. **Increase ETH value capture**
 
 If a privacy order book becomes sufficiently usable, it can significantly strengthen ETH’s position as the core value-capture asset across multiple dimensions:
 
