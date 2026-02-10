@@ -25,9 +25,9 @@ In Invisibook, the trading instruments and quoted prices are public, but the ord
     - If orders are in the same block and have the same price, they are matched from highest to lowest gas fee.
     - Matching occurs between limit ↔ limit orders and market ↔ limit orders based on quoted unit prices.
 4. After successful matching, the involved orders are locked on-chain. Both trading parties must sign the matching result. Once signed, the orders cannot be canceled and must wait for settlement.
-5. （1）If order is plaintext to plaintext, just onchain settle.
-（2） If plaintext to cipertext, the cipertext endpoint should update the orders’ states and offer a zk-proof that proves the state-transition is legal.
-（3）The client checks the on-chain matching result, then performs peer-to-peer off-chain settlement with the matched counterparty using MPC, and generates a ZK proof.
+5. （1）If order is plaintext to plaintext, just onchain settle.  
+（2） If plaintext to cipertext, the cipertext endpoint should update the orders’ states and offer a zk-proof that proves the state-transition is legal.  
+（3）The client checks the on-chain matching result, then performs peer-to-peer off-chain settlement with the matched counterparty using MPC, and generates a ZK proof.  
 
 The MPC settlement process works as follows:
 
