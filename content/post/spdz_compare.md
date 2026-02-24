@@ -1,6 +1,6 @@
 ---
 layout:     post
-title:      "如何隐私比较两个整数"
+title:      "如何隐私比较两个整数（错误）"
 date:       2025-12-29
 author:     "Invisibook Lab"
 tags:       ["MPC", "SPDZ", "隐私"]
