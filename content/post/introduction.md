@@ -1,112 +1,117 @@
 ---
 layout:     post
-title:      "Invisibook: Decentralized  Privacy  order-book on Ethereum"
-date:       2026-02-09
+title:      "Invisibook, 隐私去中心化订单薄"
+date:       2025-12-25
 author:     "Invisibook Lab"
 tags:       ["区块链", "去中心化", "隐私", "订单簿", "DeFi"]
 categories: ["Tech"]
 ---
 
+### 引言：为何需要去中心化隐私订单簿
 
-## **Introduction**
+订单簿交易是现代金融体系中最成熟、最具扩展性的交易形式，也是价格发现与流动性形成的核心机制。然而，在数字化、链上化和高频化的环境下，订单簿暴露出一个长期被忽视的结构性矛盾：**交易系统无法同时实现抗审查、隐私保护与可验证执行。**
 
-Invisibook is a decentralized privacy order book project. It is built on Ethereum L1 and achieves on-chain matching, off-chain settlement, and on-chain verification through a combination of MPC (Multi-Party Computation) + ZK (Zero-Knowledge proofs).
+### 去中心化订单簿：抗审查与可验证，但缺乏隐私
 
-In Invisibook, the trading instruments and quoted prices are public, but the order quantities on-chain are in ciphertext form. The public and counterparties can only execute trades — they cannot discover the other party’s position size (even using AI or quantitative trading algorithms). This protects traders’ privacy and prevents reverse engineering of positions, front-running (rat trading / insider trading), and various forms of MEV that erode large profits.
+去中心化交易系统通过将订单提交、排序与撮合规则部署在公开协议之上，消除了对中心化中介的依赖，使交易执行具备天然的抗审查性。只要用户能够与网络交互，其订单就无法被单一实体任意拒绝、冻结或选择性延迟。
 
-## **Flow**
+更重要的是，链上交易不仅是抗审查的，而且是**可验证的**。撮合规则、成交顺序和结算结果对所有参与者公开，任何人都可以在事后独立验证交易是否按照既定规则执行。这种可验证性在传统交易所中无法实现，是去中心化交易最核心的制度优势之一。
 
-1. The user holds a certain amount of cryptocurrency in the Invisibook contract on Ethereum, recorded in ciphertext form.
-2. The user submits a ciphertext/plaintext order on-chain along with a ZK proof:
-    - if ciphertext, only the order quantity is encrypted (the quantity is a commitment); the price is in plaintext.
-    - The ZK proof demonstrates that the user has sufficient balance and fee allowance to place this order.
-3. On-chain matching is performed based on the order prices according to the following rules:
-    - Block height serves as the time priority; matching starts from orders in lower block numbers.
-    - If orders are in the same block and have the same price, they are matched from highest to lowest gas fee.
-    - Matching occurs between limit ↔ limit orders and market ↔ limit orders based on quoted unit prices.
-4. After successful matching, the involved orders are locked on-chain. Both trading parties must sign the matching result. Once signed, the orders cannot be canceled and must wait for settlement.
-5. （1）If order is plaintext to plaintext, just onchain settle.  
-（2） If plaintext to cipertext, the cipertext endpoint should update the orders’ states and offer a zk-proof that proves the state-transition is legal.  
-（3）The client checks the on-chain matching result, then performs peer-to-peer off-chain settlement with the matched counterparty using MPC, and generates a ZK proof.  
+然而，现有去中心化订单簿几乎无一例外地以**完全透明的订单数据**为代价。订单的价格、数量和时间信息被实时广播给所有观察者，使交易行为成为可被持续解析和利用的信号源。这种透明性并非中性，而会在市场微观结构层面引发一系列系统性风险。
 
-The MPC settlement process works as follows:
+### 透明订单簿引发的系统性风险
 
-- Uses maliciously-secure MPC for off-chain point-to-point trading; during the process, neither party can learn the other’s exact data.
-- Provides a ZK proof showing: the plaintext value of the order quantity commitment = the input value computed by MPC.
+在完全透明的订单簿中，订单数量直接暴露了交易者的资金规模、执行紧迫性与剩余交易意图。这使得真实交易需求在结构上处于劣势，并诱发以下典型行为：
 
-The ZK proof certifies:
+**价格冲击的提前放大**
 
-- Buyer credited / seller debited amount = settlement amount of the order
-- Remaining order quantity = old order quantity − settled order quantity
-1. Upload the ZK proof to the chain for verification. If verification passes, the corresponding order and balance states are updated (all in ciphertext form).
+一旦市场识别出潜在的大额或持续性订单，流动性提供者会在成交发生之前调整报价结构，通过抬高卖价或压低买价来提前消化预期冲击。结果是滑点在执行前即被放大，真实交易者承担系统性更高的执行成本。
 
-# **Why Invisibook**
+**毒单猎杀与逆向选择**
 
-## **Limitations of Traditional Exchanges**
+信息优势参与者可以通过订单簿深度变化识别被动执行或信息劣势的订单流，并将其视为"毒性订单"。通过抢先成交、反向布局或短期对冲，风险被转移给真实需求方，而收益被结构性吸收。这种行为在透明环境中是理性的，并会长期侵蚀真实流动性的参与意愿。
 
-Traditional centralized exchanges (stock exchanges or crypto platforms) rely on a public order book mechanism where all details of buy/sell orders — price, quantity, and direction — are visible to all market participants. This transparency is intended to promote fair competition and price discovery, but in practice it has become a breeding ground for attackers and manipulators, causing significant losses to genuine traders.
+**流动性撤离与深度失效**
 
-First, large orders often suffer severe **price impact**. When an institutional investor submits a large buy or sell order, the public visibility immediately triggers market reactions. For example, a large buy order drives the price up, resulting in worse average execution prices than intended and increasing transaction costs. Conversely, large sells can trigger panic selling and depress prices. Studies show that even medium-sized orders in highly liquid markets can cause 0.5%–2% price deviation — for institutions managing large capital, this translates to millions of dollars in slippage losses.
+当交易意图被识别后，其他流动性会在极短时间内集体撤离，导致表面深度在关键时刻失效。市场在平稳状态下看似充足的流动性，在真实执行需求出现时迅速蒸发，形成内生的不稳定性。
 
-Second, order transparency easily enables **front-running / reverse positioning**. High-frequency traders (HFT) or insiders can monitor the order book and act ahead. When a large order appears, attackers can frontrun by buying early and selling after the price moves, capturing profit. This includes classic “rat trading” (front-running by insiders) where traders exploit non-public information for personal gain. In crypto markets this problem is especially severe because blockchain transparency amplifies order book visibility, allowing genuine traders to be repeatedly “hunted.”
+在链上环境中，这些风险被进一步放大。全球无许可的实时可观察性、区块排序权与 MEV 机制，使得上述行为不仅可行，而且可以被制度化和自动化地执行。**去中心化如果缺乏隐私保护，反而可能比传统交易所更不利于真实交易者。**
 
-Additionally, visible order quantities facilitate **spoofing / layering**. Manipulators place large fake orders to create illusions and lure the market in a desired direction (e.g., flooding fake sell orders to push price down, then buying real assets at the depressed level). Regulators such as the U.S. SEC have repeatedly documented such behavior, but the inherent openness of order books makes it extremely difficult to eradicate. Overall, these limitations cause genuine traders to lose substantial profits, reduce market efficiency, and exacerbate inequality — retail investors struggle to compete with institutions.
+### 中心化隐私交易：隐私建立在信任与审查之上
 
-## **Problems with Existing Decentralized Order Books**
+中心化交易所通过内部撮合与私有化执行，为部分交易提供了隐私保护，但这种隐私是**不对称且可撤销的**。订单对交易所本身、其基础设施运营方以及潜在的合作机构仍然完全透明。
 
-1. **Censorship risk**
+这意味着：
 
-    Most decentralized order books still use off-chain matching engines, which creates enormous room for MEV extraction and various forms of censorship. Moreover, because order information is even more fully public and transparent than on traditional exchanges, it provides abundant opportunities for market makers and attackers to engage in front-running, insider trading, etc.
+- 交易所构成天然的审查点，可冻结、拒绝或选择性服务；
+- 隐私交易依赖对单一实体的信任，无法被外部独立验证；
+- 隐私并非协议保障的权利，而是平台授予的特权。
 
-2. **Fake privacy**
+在这种结构下，交易者必须在执行安全与制度可信性之间做出妥协。
 
-    Many projects that claim to offer privacy decentralized order books do not provide real privacy. They rely on trust assumptions — typical examples include centralized matchers or TEEs (Trusted Execution Environments). Users must either trust Intel hardware or trust that the project’s centralized servers will not misbehave or go offline. In contrast, Invisibook solves the problem using pure cryptography with **zero trust assumptions**.
+### 去中心化隐私订单簿：解决结构性矛盾
 
+本项目正是为解决上述长期存在的结构性矛盾而提出。我们认为，一个真正健全的交易系统必须同时满足：
 
-## **What  Invisibook Can Offer Ethereum**
+- **去中心化执行，以消除审查点；**
+- **原生的隐私保护，以防止交易意图被系统性利用；**
+- **可验证的撮合与结算规则，以确保市场公平性。**
 
-1. **Gradually free the Ethereum ecosystem from dependence on Binance-led centralized exchanges and enable a native, truly private order book exchange on Ethereum**
+去中心化隐私订单簿并非对现有交易模式的简单改良，而是在制度层面重新平衡透明性、隐私与可验证性之间的关系。其目标不是隐藏市场本身，而是防止透明性被用作攻击真实交易者的工具。
 
-Although the Ethereum ecosystem currently dominates in TVL, stablecoin settlement, RWA tokenization, etc., the vast majority of high-frequency, professional, and institutional-grade trading volume still heavily relies on centralized exchanges such as Binance, OKX, and Bybit. These platforms effectively control price discovery, liquidity aggregation, and leverage tools, and indirectly control the “real” liquidity windows and slippage benchmarks for a large portion of Ethereum ecosystem assets.
+## Invisibook——隐私去中心化订单薄
 
-This dependency creates several long-term structural risks:
+### 总流程
 
-- **MEV & front-running monetized by centralized platforms** — institutional/whale large orders often go through CEX first, then sweep AMMs like Uniswap on-chain, forcing Ethereum users to accept the worst execution prices.
-- **Complete lack of privacy** — on-chain orders/positions are fully transparent, making professional trading strategies easy to copy, snipe, or reverse-engineer.
-- **Regulatory & black-swan contagion** — if a major CEX freezes funds, rugs, enforces KYC, or faces regional bans, a large portion of Ethereum’s “apparent liquidity” can vanish instantly (as seen multiple times in 2022–2023).
-- **Innovation ceiling locked** — as long as professional trading mainly happens off-chain, Ethereum struggles to birth true on-chain native “Wall Street-grade” financial primitives.
+1. 用户在本链持有一定数额的加密货币，并且以密文形式记录
+2. 用户提交密文订单到链上，并提供zk proof：  
+    - 只加密订单的数量，报价是明文的
+    - zk proof证明自己有足够的 余额 和 手续费 发起该笔订单
+3. 链上根据订单报价按照如下标准进行撮合（订单数额是密文，撮合存在不精确问题）：
+    - 区块高度作为时间排序依据，优先在区块号低的订单里面进行价格匹配
+    - 若同在一个区块且报价相同，则根据 gas-fee 对订单进行由高到低撮合
+    - 根据 限价单↔限价单 与 市价单↔定价单 之间的报价单价匹配
+4. 撮合成功之后，链上对这些订单进行锁定，并且让交易双方对该撮合结果进行签名。不许被撤回，只能等待结算。
+5. 用户端查看链上撮合结果并在链下与匹配订单的用户用MPC进行点对点结算，并生成zk proof，zk证明以下几点：     
+   - 买方入账 / 卖方出账 金额 = 订单结算金额
+   - 订单剩余数量 = 旧订单数量 - 结算订单数量
+6. 将zk proof上传到链上进行验证，验证通过则修改对应的订单和余额状态（都是密文形式）
 
-A fully cryptographic privacy order book (using zk-SNARKs, FHE, homomorphic encryption, MPC, or hybrid schemes to enable encrypted order matching, dark-pool-style execution, and partial/zero-knowledge revelation only upon trade) fundamentally changes this landscape:
+### MPC结算
 
-- Ethereum gains its first truly native privacy venue capable of carrying institutional- and professional-grade trading — eliminating the need to “go to Binance first, then settle back on-chain.”
-- Core CEX features such as high-frequency limit orders, iceberg orders, conditional orders, and hidden-intent orders can finally be implemented natively on Ethereum L1 or efficient L2s without leaking intent, being front-run, or sandwiched.
-- Price discovery power gradually flows back from CEX to Ethereum on-chain — when enough professional capital decides that “on-chain privacy order book execution quality + privacy > CEX convenience + tail risks,” a structural liquidity migration will occur.
-- This is not merely “a more private Uniswap”; it is building Ethereum’s own hybrid “dark pool + public order book” infrastructure, upgrading Ethereum from a “settlement layer + spot AMM playground” to a full-fledged financial primitive layer with complete market microstructure (price formation).
-- In the long run, this significantly reduces the “traffic tax” and “trust tax” that CEXs impose on the Bitcoin/Ethereum ecosystem, giving Ethereum genuine trading sovereignty and control over its own destiny.
-2. **Increase ETH value capture**
+恶意模型下的MPC，进行点对点订单结算
 
-If a privacy order book becomes sufficiently usable, it can significantly strengthen ETH’s position as the core value-capture asset across multiple dimensions:
-
-- **Trading activity directly drives ETH gas consumption**
-
-    Even on L2 or validium, zk-proof generation for the matching engine, state updates, data availability, forced withdrawals/challenges, etc., still consume ETH. Privacy computation is far more gas-intensive than regular AMM swaps — a single complex order may consume 5–30× more gas than a normal transaction. As trading volume scales, ETH burn + staking demand will increase markedly.
-
-- **ETH becomes the benchmark margin & settlement currency for privacy finance**
-
-    Experience from dYdX, Hyperliquid, etc. shows that when professional trading venues use ETH (or stETH) as the primary collateral/settlement currency, a strong positive flywheel forms: more institutions/professionals hold ETH → more ETH locked in privacy order book contracts → further rise in ETH liquidity & demand.
-
-- **Create a new “privacy premium” capture mechanism**
-
-    Native tokenomics can be designed so ETH holders capture a portion of protocol fees generated by the privacy order book through staking, providing privacy compute resources (similar to prover networks), governance participation, etc. This effectively adds a new “privacy finance usage tax” dimension to ETH — something almost nonexistent on Ethereum today.
-
-- **Become a moat-level application that attracts institutional capital**
-
-    Institutions value auditable privacy + composable settlement most. When a privacy order book becomes the preferred execution layer for RWA, institutional DeFi, and crypto hedge funds, large amounts of traditional financial capital will enter via ETH as the bridge (buy ETH → swap to stETH/wETH → provide liquidity/trade in the privacy order book). This creates a new steady source of ETH demand beyond cyclical speculation.
-
-- **Network effects & ecosystem lock-in**
-
-    Once developers, market makers, and quant teams migrate their strategies, risk models, and oracle integrations to this privacy order book infrastructure, switching costs become extremely high — creating a lock-in effect similar to Uniswap’s dominance over AMMs. This lock-in ultimately flows back to ETH, as nearly all privacy DeFi gas, settlement, and collateral must route through ETH.
+秘密共享的MPC：  
+https://github.com/renegade-fi/ark-mpc   
+https://github.com/data61/MP-SPDZ   
 
 
-A privacy order book is not just another application on Ethereum — it is the key infrastructure that upgrades ETH from “fuel” to **the core capital and settlement anchor of the privacy finance era**.
+混淆电路模式MPC参考：  
+https://eprint.iacr.org/2017/030.pdf    
+https://github.com/emp-toolkit/emp-ag2pc 
+
+### Collaborative ZK 证明
+
+论文：
+1. https://eprint.iacr.org/2025/1388 
+2. https://eprint.iacr.org/2024/143 
+
+### 抗MEV协议
+
+当限价单被上传到链上的时候，由于报价是明文，此时存在被MEV攻击的风险，所以我们采用MEVless协议来抗MEV：
+
+- EIP-8099: [https://github.com/ethereum/EIPs/pull/10855](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-8099.md)
+- https://github.com/ethereum/RIPs/pull/75
+
+## 共识协议
+
+### Proof of Buying
+
+第一阶段，我们先使其作为CKB上的Layer2 AppChain运行，所以我们的共识协议需要基于CKB的安全性：
+
+1. **准入共识**：CKB持有者都可以参与挖矿。
+2. **出块共识**：矿工需要在CKB Layer1上支付一定数额的CKB到指定地址，并且本地使用VDF算法计算出一个随机值并发布到网络中，每个节点计算 `VDF_output * CKB_payment_amount`，选取最大的那个作为出块节点。VDF的输入为上个区块的 blockHash。
+3. **最终共识**：在所有fork中选择 `(VDF_output * CKB_payment_amount)` 总和最大的作为主链。
+4. **退出共识**：停止支付或者停止VDF计算即可退出。
+
 
