@@ -7,8 +7,6 @@ tags:       ["MPC", "Edabits", "隐私"]
 categories: ["Tech"]
 ---  
 
-**—— 从 Beaver 三元组、OT 分发、前缀运算到完整协议流程**
-
 ---
 
 ## 第一章 问题背景与核心挑战
