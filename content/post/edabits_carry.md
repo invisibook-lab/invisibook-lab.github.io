@@ -1,4 +1,11 @@
-# 秘密共享的 MPC 中如何秘密计算二进制进位
+---
+layout:     post
+title:      "秘密共享的 MPC 中如何秘密计算二进制进位"
+date:       2026-03-21
+author:     "Invisibook Lab"
+tags:       ["MPC", "Edabits", "隐私"]
+categories: ["Tech"]
+---  
 
 **—— 从 Beaver 三元组、OT 分发、前缀运算到完整协议流程**
 
