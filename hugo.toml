@@ -1,19 +1,19 @@
 baseurl = "https://invisibook-lab.github.io"
 title = "Invisibook"
 theme = "cleanwhite"
-defaultContentLanguage = "zh"
+defaultContentLanguage = "en"
 defaultContentLanguageInSubdir = false
 preserveTaxonomyNames = true
 hasCJKLanguage = true
 
 [languages]
-  [languages.zh]
-    label = "中文"
-    weight = 1
   [languages.en]
     label = "EN"
-    weight = 2
+    weight = 1
     title = "Invisibook"
+  [languages.zh]
+    label = "中文"
+    weight = 2
 
 [services]
   # Enable comments by entering your Disqus shortname
