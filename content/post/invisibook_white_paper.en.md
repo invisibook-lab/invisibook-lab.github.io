@@ -68,16 +68,17 @@ After completing the deposit, the user must submit a **zero-knowledge proof π\_
 ## **3.2  Algebraic Description**
 
 Suppose user Alice deposits amount d into the cross-chain bridge, with her old ciphertext balance on the Invisibook chain being bal\_old and new ciphertext balance being bal\_new. The following must hold:
+```
+π_deposit: {
 
-π\_deposit: {
+  bal_new = Encrypt(Decrypt(bal_old) + d)
 
-  bal\_new \= Encrypt(Decrypt(bal\_old) \+ d)
+  ∧  deposit_tx ∈ source_chain_tx_root
 
-  ∧  deposit\_tx ∈ source\_chain\_tx\_root
-
-  ∧  sender(deposit\_tx) \= addr\_Alice
+  ∧  sender(deposit_tx) = addr_Alice
 
 }
+```
 
 The first constraint ensures the correctness of the balance update, the second ensures the deposit transaction was indeed confirmed by the source chain blockchain, and the third ensures the binding between the transaction initiator and the Invisibook account.
 
@@ -101,22 +102,22 @@ Simultaneously, the user must generate and submit a zero-knowledge proof π\_ord
 
 ## **4.2  Algebraic Description**
 
-Order \= { price, C, side, π\_order }
+Order = { price, C, side, π\_order }
 
 where side ∈ {BUY, SELL} indicates the order direction. The complete ZK Proof statement is as follows:
-
-π\_order: {
+```
+π_order: {
 
   ∃ amt, r  s.t.
 
-  C \= Poseidon(amt , r)
+  C = Poseidon(amt , r)
 
-  ∧  amt \> 0
+  ∧  amt > 0
 
-  ∧  amt × price ≤ Decrypt(bal\_user)
+  ∧  amt × price ≤ Decrypt(bal_user)
 
 }
-
+```
 This proof ensures that users cannot place fraudulent orders exceeding their balance, nor submit illegal zero-amount or negative-amount orders. Since the proof is verified on-chain, any order that fails to satisfy the above constraints will be rejected.
 
 ## **4.3  Security Analysis**
