@@ -115,7 +115,7 @@ Order = { price, C, side, π\_order }
 
   ∧  amt > 0
 
-  ∧  amt × price ≤ Decrypt(bal\_user)
+  ∧  amt × price ≤ Decrypt(bal_user)
 
 }
 ```
