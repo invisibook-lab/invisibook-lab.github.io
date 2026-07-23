@@ -19,17 +19,17 @@ Invisibook is a **privacy-preserving cross-chain order book protocol** designed 
 
 The core design philosophy of Invisibook is: **prices are public, amounts are private**. The on-chain order book exposes only price information for the matching engine to perform pairing, while the specific order amounts are stored on-chain as Poseidon hash commitments (Poseidon is tentatively chosen; other hash functions may be considered later — the key selection criterion is which hash achieves the best combined performance in MPC circuits and ZK proofs). No third party can learn the true size of any order. When two orders are successfully matched, the buyer and seller complete settlement through an off-chain peer-to-peer privacy settlement protocol, during which both parties' order amounts remain confidential to outsiders at all times.
 
-The protocol's security is built upon three major cryptographic primitives: **the Poseidon hash function** for generating efficient arithmetic-friendly commitments, **zero-knowledge proofs (ZK Proofs)** for verifying various constraints without revealing private information, and **malicious-secure secret-sharing MPC (based on SPDZ)** for performing secure numerical comparisons between two parties.
+The protocol's security is built upon three major cryptographic primitives: **the Poseidon hash function** for generating efficient arithmetic-friendly commitments, **zero-knowledge proofs (ZK Proofs)** for verifying various constraints without revealing private information, and **SPDZ-based malicious-secure MPC combined with collaborative zero-knowledge proofs (co-ZK)** for performing secure numerical comparison and generating verifiable proofs between two parties without revealing private inputs.
 
 The protocol is divided into four phases:
 
-* **Phase One: Cross-Chain Deposit** — Users deposit assets from external chains (such as Ethereum, Solana, and other L1/L2 networks) via the corresponding cross-chain bridge. On the Invisibook chain, the account balance is recorded in ciphertext form (UTXO format), and a ZK Proof is submitted to prove fund ownership.
+* **Phase One: Cross-Chain Deposit** — Users deposit assets from external chains (such as Ethereum, Solana, and other L1/L2 networks) via the corresponding cross-chain bridge. On the Invisibook chain, the deposited funds are recorded as private UTXO notes (Zcash-style), with note commitments appended to an on-chain Merkle tree, and a ZK Proof is submitted to prove fund ownership.
 
-* **Phase Two: Private Order Submission** — Users create orders with prices publicly disclosed in plaintext and amounts hidden via Poseidon commitments, accompanied by a ZK Proof of sufficient balance.
+* **Phase Two: Private Order Submission** — Users create orders by consuming private UTXOs (via nullifiers) as collateral. Prices are publicly disclosed in plaintext, amounts are hidden via Poseidon commitments, and a ZK Proof proves that the consumed UTXOs fully cover the order value.
 
 * **Phase Three: On-Chain Transparent Matching** — The matching engine executes a price-priority matching algorithm based on plaintext prices, pairing buyers and sellers.
 
-* **Phase Four: Off-Chain Privacy Settlement** — The matched parties compute secret shares of the comparison result via SPDZ malicious-secure secret-sharing MPC. Each party submits their share on-chain, and the on-chain synthesis determines the comparison result. The smaller-order party then sends the plaintext to the larger-order party to complete the difference calculation and state update.
+* **Phase Four: Off-Chain Privacy Settlement** — Matched orders are immediately locked on-chain and enter the settlement process. The two parties run a SPDZ-based MPC protocol that jointly produces secret shares of both the comparison result and a collaborative ZK proof (co-ZK). Each party submits their shares on-chain, where the chain assembles the comparison result and the proof. The smaller-order party then sends the plaintext to the larger-order party to complete the difference calculation, UTXO creation, and state update.
 
 ![Protocol flow diagram][image1]
 
@@ -42,11 +42,14 @@ To maintain consistency in subsequent descriptions, this section defines the cor
 | Symbol | Type | Description |
 | :---- | :---- | :---- |
 | addr\_i | Address | User i's account address on the Invisibook chain |
-| bal\_i | Ciphertext | User i's encrypted balance (on-chain storage form) |
-| amt | uint64 | The actual plaintext order amount (known only to the user) |
+| note | Tuple | A private UTXO note of the form (addr, v, r), where v is the value and r is the randomness |
+| cm | Commitment | Note commitment: cm = Poseidon(addr, v, r), stored in an append-only Merkle tree |
+| nf | Nullifier | A unique tag derived from a note, published on-chain to "spend" the note without revealing which note is consumed |
+| amt (or q) | uint64 | The actual plaintext order amount (known only to the user) |
 | r | Random number | 256-bit random blinding factor |
-| C | Commitment | Poseidon hash commitment of the order amount |
-| price | uint64 | Order price (plaintext, publicly visible on-chain) |
+| C (or cm\_q) | Commitment | Poseidon hash commitment of the order amount: C = Poseidon(amt, r) |
+| price (or p) | uint64 | Order price (plaintext, publicly visible on-chain) |
+| f | uint64 | Order fee (plaintext), paid by the order creator |
 | π | Proof | Zero-knowledge proof (ZK Proof) |
 
 The Poseidon commitment is computed as follows:
@@ -61,17 +64,17 @@ where , denotes concatenation. Poseidon is a hash function highly optimized for 
 
 The user first initiates a cross-chain transfer transaction on the external source chain (Source Chain), depositing native assets or tokens into the **cross-chain bridge** deployed by Invisibook on that chain. After the bridge locks the user's assets, the deposit information is synchronized to the Invisibook chain via cross-chain message passing mechanisms (such as state root anchoring, relayer networks, or light client verification). The source chain can be any supported L1 or L2 network, such as Ethereum, Solana, Arbitrum, etc.
 
-On the Invisibook chain, user account balances are always stored in **ciphertext form**. Specifically, the on-chain state records not the user's actual balance value but a cryptographically processed ciphertext representation. This design ensures that even though on-chain data is public to all validators, no third party can directly read the user's true balance.
+On the Invisibook chain, user funds are stored as **private UTXO notes** in a Zcash-style model. Each note is a tuple (addr, v, r), where addr is the owner's address, v is the value, and r is a random blinding factor. The note commitment cm = Poseidon(addr, v, r) is appended to an on-chain append-only Merkle tree. This design ensures that even though the Merkle tree is public to all validators, no third party can determine the owner or value of any note.
 
-After completing the deposit, the user must submit a **zero-knowledge proof π\_deposit** on the Invisibook chain, proving that they are indeed the initiator and legitimate holder of the deposit transaction on the source chain, and that the on-chain ciphertext balance has been correctly updated.
+After completing the deposit, the user must submit a **zero-knowledge proof π\_deposit** on the Invisibook chain, proving that they are indeed the initiator and legitimate holder of the deposit transaction on the source chain, and that the corresponding note commitment has been correctly computed and inserted into the Merkle tree.
 
 ## **3.2  Algebraic Description**
 
-Suppose user Alice deposits amount d into the cross-chain bridge, with her old ciphertext balance on the Invisibook chain being bal\_old and new ciphertext balance being bal\_new. The following must hold:
+Suppose user Alice deposits amount d into the cross-chain bridge. A new private UTXO note note\_new = (addr\_Alice, d, r) is created, with commitment cm\_new = Poseidon(addr\_Alice, d, r). The following must hold:
 ```
 π_deposit: {
 
-  bal_new = Encrypt(Decrypt(bal_old) + d)
+  cm_new = Poseidon(addr_Alice, d, r)
 
   ∧  deposit_tx ∈ source_chain_tx_root
 
@@ -80,45 +83,55 @@ Suppose user Alice deposits amount d into the cross-chain bridge, with her old c
 }
 ```
 
-The first constraint ensures the correctness of the balance update, the second ensures the deposit transaction was indeed confirmed by the source chain blockchain, and the third ensures the binding between the transaction initiator and the Invisibook account.
+The first constraint ensures the note commitment is correctly formed, the second ensures the deposit transaction was indeed confirmed by the source chain blockchain, and the third ensures the binding between the transaction initiator and the Invisibook account. After verification, cm\_new is appended to the on-chain Merkle tree.
 
 # **4  Phase Two: Private Order Submission**
 
 ## **4.1  Flow Description**
 
-When a user wishes to place an order on the Invisibook order book, they need to construct a **private order**. The order consists of two parts:
+When a user wishes to place an order on the Invisibook order book, they need to construct a **private order**. An order is a special on-chain object with the following tuple structure:
 
-* **Plaintext price (price):** The unit price information of the order is publicly submitted to the chain in plaintext for the matching engine to use. This is the foundation for price discovery and matching in the order book.
+Order = (oid, τ, d, p, cm\_q, pk, f)
 
-* **Amount commitment (C):** The actual trading quantity of the order is submitted to the chain in the form of a Poseidon commitment. Any on-chain observer can only see an irreversible hash value and cannot recover the true order amount.
+where oid is the unique order ID, τ ∈ {BUY, SELL} is the order direction, d is the trading pair identifier, p is the plaintext price, cm\_q = Poseidon(q, r\_q) is the commitment to the order quantity q, pk is the creator's public key, and f is the plaintext fee.
 
-Simultaneously, the user must generate and submit a zero-knowledge proof π\_order that satisfies the following constraints:
+To create an order, the user must **consume one or more private UTXO notes** (via publishing their nullifiers on-chain) whose total value covers p · q + f. This mechanism ensures full collateralization: the consumed notes serve as locked collateral for the order.
 
-* Commitment format correctness: C \= Poseidon(amt , r)
+The user must generate and submit a zero-knowledge proof π\_order that satisfies the following constraints:
 
-* Balance sufficiency: amt × price ≤ Decrypt(bal\_user)
+* Each consumed note exists in the on-chain Merkle tree (Merkle membership proof)
 
-* Amount positivity: amt \> 0
+* Each nullifier is correctly derived from the corresponding note
+
+* The total value of consumed notes ≥ p · q + f (full collateralization)
+
+* Commitment format correctness: cm\_q = Poseidon(q, r\_q)
+
+* Amount positivity: q > 0
 
 ## **4.2  Algebraic Description**
 
-Order = { price, C, side, π\_order }
+Order = (oid, τ, d, p, cm\_q, pk, f)
 
-where side ∈ {BUY, SELL} indicates the order direction. The complete ZK Proof statement is as follows:
+where τ ∈ {BUY, SELL} indicates the order direction. The complete ZK Proof statement is as follows:
 ```
 π_order: {
 
-  ∃ amt, r  s.t.
+  ∃ q, r_q, {note_i, path_i, nf_i}  s.t.
 
-  C = Poseidon(amt , r)
+  ∀i: MerkleVerify(root, cm_i, path_i) = true
 
-  ∧  amt > 0
+  ∧  ∀i: nf_i = DeriveNullifier(note_i)
 
-  ∧  amt × price ≤ Decrypt(bal_user)
+  ∧  Σ note_i.v ≥ p · q + f
+
+  ∧  cm_q = Poseidon(q, r_q)
+
+  ∧  q > 0
 
 }
 ```
-This proof ensures that users cannot place fraudulent orders exceeding their balance, nor submit illegal zero-amount or negative-amount orders. Since the proof is verified on-chain, any order that fails to satisfy the above constraints will be rejected.
+This proof ensures that users cannot place orders without sufficient collateral (the consumed UTXOs must fully cover the order value plus fee), nor submit illegal zero-amount or negative-amount orders. Since the proof is verified on-chain, any order that fails to satisfy the above constraints will be rejected. Upon acceptance, the nullifiers of the consumed notes are recorded on-chain, preventing double-spending.
 
 ## **4.3  Security Analysis**
 
@@ -146,29 +159,33 @@ When a new buy order price ≥ the current best ask price (or vice versa), the m
 
 ## **5.2  Matching Priority Rules**
 
-When multiple orders have prices within the executable range, the matching engine sorts them according to the following **three-level priority** to determine the matching order:
+When multiple orders have prices within the executable range, the matching engine sorts them according to the following **four-level priority** to determine the matching order:
 
 * **First Priority — Best Price (Price Priority):** Among buy orders, the highest bid is matched first; among sell orders, the lowest ask is matched first. This is the fundamental principle of all order books, ensuring the market's price discovery function operates normally.
 
 * **Second Priority — Earliest Block Height (Block Height Priority):** When multiple orders have the same price, the block height at which the order was included serves as the time-ordering criterion. Orders in lower-numbered blocks (i.e., earlier on-chain) enjoy higher matching priority. This rule ensures first-come-first-served fairness, preventing latecomers from displacing earlier participants at the same price.
 
-* **Third Priority — Highest Gas Fee (Gas Fee Priority):** If multiple orders have the same price and are within the same block (i.e., same block height), they are sorted by gas fee paid in descending order. Orders paying higher gas fees are matched first. This rule provides a market-based ordering mechanism within blocks — when users wish to gain higher execution priority at the same price level, they can express this desire by increasing their gas fee.
+* **Third Priority — Highest Fee (Fee Priority):** If multiple orders have the same price and are within the same block (i.e., same block height), they are sorted by the plaintext fee field f in descending order. Orders paying higher fees are matched first. This rule provides a market-based ordering mechanism within blocks — when users wish to gain higher execution priority at the same price level, they can express this desire by increasing their order fee.
+
+* **Fourth Priority — Intra-Block Transaction Index (Index Priority):** If orders share the same price, block height, and fee, they are ordered by their transaction index within the block in ascending order. This provides a deterministic tiebreaker to ensure a fully defined ordering.
 
 The above priority rules can be formally expressed as:
 
-Priority(order) \= ( price,  block\_height↑,  gas\_fee↓ )
+Priority(order) = ( price, block\_height↑, fee↓, tx\_index↑ )
 
-That is: first sort by price (descending for buy orders, ascending for sell orders), then by block height in ascending order when prices are equal (earlier is prioritized), and then by gas fee in descending order when block heights are also equal (higher fee is prioritized).
+That is: first sort by price (descending for buy orders, ascending for sell orders), then by block height in ascending order when prices are equal (earlier is prioritized), then by fee in descending order when block heights are also equal (higher fee is prioritized), and finally by intra-block transaction index in ascending order as a deterministic tiebreaker.
+
+**Strictly pairwise matching:** Because order amounts are hidden, the matching engine cannot aggregate multiple orders. Each match pairs exactly one bid with one ask. After a match, both orders are **immediately locked on-chain**: they can no longer be canceled and are forced into the settlement process.
 
 ## **5.3  Important Design Trade-off**
 
 Since order amounts are in ciphertext form, the matching engine **cannot know** during the matching phase whether the true quantities of two matched orders are equal. Therefore, Invisibook's matching result is only a **"price match"**, not a "full execution match" in the traditional sense. The actual quantity comparison and difference processing must be completed during the off-chain settlement in Phase Four.
 
-This design represents the most fundamental difference between Invisibook and traditional order book matching engines: traditional engines can complete precise quantity matching and partial fill processing during matching, whereas Invisibook defers quantity-related computation to the off-chain privacy settlement phase.
+This design represents the most fundamental difference between Invisibook and traditional order book matching engines: traditional engines can complete precise quantity matching and partial fill processing during matching, whereas Invisibook defers quantity-related computation to the off-chain privacy settlement phase. Additionally, matching is strictly pairwise (one bid, one ask) because the chain cannot aggregate multiple hidden-amount orders.
 
 # **6  Phase Four: Off-Chain Privacy Settlement**
 
-Phase Four is the most complex and critical step in the Invisibook protocol. After the matching engine pairs two orders, both trading parties must first **click to confirm** the match result. Then the order holders (hereafter referred to as Alice and Bob) must complete settlement through an off-chain peer-to-peer privacy protocol.
+Phase Four is the most complex and critical step in the Invisibook protocol. After the matching engine pairs two orders, both orders are **immediately locked on-chain** and enter the settlement process. The order holders (hereafter referred to as Alice and Bob) must complete settlement through an off-chain peer-to-peer privacy protocol.
 
 ![][image2]
 
@@ -186,44 +203,49 @@ Invisibook employs a malicious-secure MPC protocol based on **SPDZ** to complete
 2. **Numerical comparison**: Compute the comparison result b = (amt\_A ≤ amt\_B) under secret sharing.
 3. **IT-MAC malicious security guarantee**: SPDZ's IT-MAC mechanism ensures that if either party attempts to tamper with their input or intermediate computation, it will be detected by the other party, and the protocol will abort.
 
-**Integrated design of commitment verification and comparison**: Commitment verification is executed within the MPC protocol itself — neither party needs to publicly reveal their commitment opening before comparison. The protocol internally computes the Poseidon hash using secret shares and compares it against the on-chain commitment, merging commitment verification and numerical comparison into a single atomic operation, preventing any intermediate information leakage.
+**Integrated design with collaborative ZK proofs (co-ZK)**: Commitment verification and numerical comparison are executed within the MPC protocol as a single atomic operation. Neither party needs to publicly reveal their commitment opening. The protocol internally computes the Poseidon hash using secret shares and compares it against the on-chain commitment. Furthermore, the MPC protocol jointly generates a **collaborative zero-knowledge proof (co-ZK) π\_cmp** that attests to the correctness of the comparison — neither party alone can construct this proof, and neither party learns the other's private input during the process.
 
-**Share output**: The comparison result b is **not directly revealed** to either party, but output as additive secret shares:
+**Share output**: The MPC protocol produces two types of secret shares:
 
-* Alice receives share\_A (a random value)
-* Bob receives share\_B
-* Satisfying share\_A + share\_B ≡ b (mod p)
+* **Comparison result shares**: Alice receives share\_b\_A, Bob receives share\_b\_B, satisfying share\_b\_A + share\_b\_B ≡ b (mod p)
+* **Proof shares**: Alice receives share\_π\_A, Bob receives share\_π\_B, which can be assembled on-chain into the complete proof π\_cmp
 
-Each party submits their share to the chain, and the on-chain logic completes the synthesis.
+Neither the comparison result nor the proof is directly revealed to either party. Each party submits both their comparison share and proof share to the chain, and the on-chain logic completes the assembly.
 
 ### **6.1.1  On-Chain Share Synthesis**
 
 After MPC completion, both parties must submit their respective shares on-chain within the prescribed block deadline (10 block times). The on-chain logic executes the following operations:
 
-* Compute share\_A + share\_B mod p to obtain the comparison result b
+* Assemble the comparison result: compute share\_b\_A + share\_b\_B mod p to obtain b
+* Assemble the collaborative proof: combine share\_π\_A and share\_π\_B to reconstruct π\_cmp
+* Verify π\_cmp on-chain to confirm the correctness of the comparison
 * b = 1 indicates amt\_A ≤ amt\_B (Alice is the smaller-order party); b = 0 indicates amt\_A > amt\_B (Bob is the smaller-order party)
-* After the comparison result is publicly confirmed on-chain, the subsequent settlement process is triggered
+* After the comparison result and proof are publicly verified on-chain, the subsequent settlement process is triggered
 
-On-chain synthesis ensures that the finality of the comparison result does not depend on any single party, but is guaranteed through on-chain verification.
+On-chain synthesis ensures that the finality of the comparison result does not depend on any single party, but is cryptographically guaranteed through on-chain proof verification.
 
 ### **6.1.2  Timeout Freeze Mechanism**
 
-If one party fails to upload their share within the deadline (10 block times):
+The protocol distinguishes two failure scenarios:
+
+**Case 1 — MPC Abort:** If the MPC protocol itself aborts (e.g., due to detected cheating via IT-MAC, network failure, or either party going offline during computation), **no penalty is imposed**. Both orders are unlocked and returned to the order book for re-matching. This is because an abort may result from legitimate network issues rather than intentional misbehavior.
+
+**Case 2 — Withholding Shares:** If the MPC completes successfully but one party fails to upload their shares on-chain within the deadline (10 block times):
 
 * The delaying party's order is frozen for 72 hours
 * The party that already uploaded has their order released and can re-enter matching
 
-This mechanism ensures both parties are incentivized to promptly complete on-chain share submission, guaranteeing the liveness of the settlement process.
+The penalty is a **freeze, not a slash**, because failure to submit may also result from network faults rather than malicious intent. This mechanism ensures both parties are incentivized to promptly complete on-chain share submission, guaranteeing the liveness of the settlement process.
 
 ## **6.2  Smaller-Order Party Settlement (Alice as Example)**
 
-Assume the comparison result is amt\_A \<= amt\_B, meaning Alice holds the smaller order. Alice must then perform the following operations:
+Assume the comparison result is amt\_A <= amt\_B, meaning Alice holds the smaller order. Alice must then perform the following operations:
 
 ### **6.2.1  Peer-to-Peer Plaintext Transmission**
 
 Alice sends her plaintext order amount amt\_A and the corresponding 256-bit random blinding factor r\_A to Bob through secure peer-to-peer communication. Bob can then locally verify:
 
-Poseidon(amt\_A , r\_A) \== C\_A
+Poseidon(amt\_A , r\_A) == C\_A
 
 where C\_A is the order commitment Alice previously published on-chain. If verification passes, Bob can be confident that the plaintext data Alice sent is consistent with the on-chain commitment, with no deception.
 
@@ -231,39 +253,49 @@ where C\_A is the order commitment Alice previously published on-chain. If verif
 
 Alice submits the following updates to the chain:
 
-* Mark her order status as "fully filled"
+* Her order is **marked as destroyed** on the order book (fully filled)
 
-* Update her ciphertext account balance (deducting the filled amt\_A portion, crediting the corresponding bought/sold assets)
+* A new **private UTXO note** is created and paid to Bob (the counterparty), representing the settled asset transfer of amt\_A
 
-This result is confirmed by the on-chain share synthesis (see 6.1.1).
+* Alice provides a zero-knowledge proof π\_A proving the consistency of the settlement (the UTXO amount matches the committed order quantity)
+
+This result is confirmed by the on-chain share synthesis and proof verification (see 6.1.1).
 
 ## **6.3  Larger-Order Party Settlement (Bob as Example)**
 
 After Bob receives amt\_A and r\_A from Alice, he first locally verifies the commitment consistency. Upon successful verification, Bob locally computes the new remaining order quantity:
 
-amt\_B' \= amt\_B \- amt\_A
+amt\_B' = amt\_B - amt\_A
 
 Bob then selects a new random blinding factor r\_B' and computes the new order commitment:
 
-C\_B' \= Poseidon(amt\_B' , r\_B')
+C\_B' = Poseidon(amt\_B' , r\_B')
 
 Bob submits the following updates to the chain:
 
-* Update his order commitment from C\_B to C\_B' (the remaining order continues as an open order)
+* His original order is **marked as destroyed** on the order book
 
-* Update his ciphertext account balance (crediting the amt\_A portion settled in this round)
+* A **new order o\_B'** is created with the updated commitment C\_B' (the residual order continues as an open order on the book)
 
-* Attach a zero-knowledge proof π\_B that simultaneously proves the following two statements:
+* A new **private UTXO note** is created and paid to Alice (the counterparty), representing the settled asset transfer of amt\_A
 
-  π\_B: {
+* Attach a zero-knowledge proof π\_B that simultaneously proves the following three statements:
 
-    (1)  amt\_B' \= amt\_B \- amt\_A
+```
+π_B: {
 
-    (2)  Poseidon(amt\_A , r\_A) \= C\_A
+  (1)  amt_B' = amt_B - amt_A  ∧  amt_B' ≥ 0
 
-  }
+  (2)  Poseidon(amt_A , r_A) = C_A
 
-Statement (1) proves that the new order amount is the correct result of subtracting the smaller order amount from the old order amount (ensuring Bob did not tamper with the calculation). Statement (2) proves that the amt\_A used by Bob is indeed consistent with Alice's previously committed order ciphertext C\_A on-chain (preventing Bob from fabricating the smaller order quantity to gain illegitimate benefits).
+  (3)  The new UTXO amount is consistent with the fill quantity amt_A
+
+}
+```
+
+Statement (1) proves that the residual order amount is the correct result of subtracting the smaller order amount from the old order amount, and that the residual is non-negative (ensuring Bob did not tamper with the calculation). Statement (2) proves that the amt\_A used by Bob is indeed consistent with Alice's previously committed order ciphertext C\_A on-chain (preventing Bob from fabricating the smaller order quantity to gain illegitimate benefits). Statement (3) ensures the new UTXO paid to the counterparty is consistent with the actual fill.
+
+**Equal quantities case:** When amt\_A = amt\_B, both orders are fully filled and marked as destroyed. Two new private UTXO notes are created — one paid to each party — and no residual order remains.
 
 ## **6.4  Challenge**
 
@@ -273,17 +305,19 @@ If Alice has not sent the plaintext after more than 5 block times, Bob can initi
 
 After Bob sees Pub\_B(amt\_A, r\_A) appear on-chain, he downloads it locally, decrypts it, and proceeds with verification and settlement following the steps in 6.2/6.3.
 
+**Adjudication:** If Alice posts plaintext data that is incorrect (i.e., does not match her on-chain commitment), Bob can submit Alice's claimed (amt\_A, r\_A) to the chain. The on-chain logic checks whether Poseidon(amt\_A, r\_A) = C\_A. If the check fails, Alice's order is frozen and Bob's order is released for re-matching.
+
 # **7  Proof Obligations Summary by Phase**
 
 The following table summarizes the zero-knowledge proofs involved in each phase of the protocol and the core statements they prove:
 
 | Phase | Proof | Core Statement |
 | :---- | :---- | :---- |
-| Phase One | π\_deposit | Balance update is correct ∧ deposit transaction exists in source chain ∧ initiator identity binding |
-| Phase Two | π\_order | C \= Poseidon(amt , r) ∧ amt \> 0 ∧ amt × price ≤ bal |
-| Phase Four (comparison) | π\_cmp | SPDZ MPC secret sharing \+ on-chain synthesis: share\_A \+ share\_B mod p \= b |
-| Phase Four (smaller party) | π\_A | amt\_A \< amt\_B (confirms self as smaller-order party) |
-| Phase Four (larger party) | π\_B | amt\_B' \= amt\_B \- amt\_A ∧ Poseidon(amt\_A , r\_A) \= C\_A |
+| Phase One | π\_deposit | Note commitment is correctly formed ∧ deposit transaction exists in source chain ∧ initiator identity binding |
+| Phase Two | π\_order | Consumed notes exist in Merkle tree ∧ nullifiers correctly derived ∧ total value ≥ p · q + f ∧ cm\_q = Poseidon(q, r\_q) ∧ q > 0 |
+| Phase Four (comparison) | π\_cmp | Collaborative ZK proof (co-ZK) assembled from MPC shares: verifies commitment openings and comparison correctness |
+| Phase Four (smaller party) | π\_A | Settlement UTXO is consistent with committed order quantity |
+| Phase Four (larger party) | π\_B | amt\_B' = amt\_B - amt\_A ∧ amt\_B' ≥ 0 ∧ Poseidon(amt\_A, r\_A) = C\_A ∧ UTXO amount consistent with fill |
 
 # **8  Security Properties Summary**
 
@@ -292,8 +326,8 @@ The Invisibook protocol provides the following security guarantees at different 
 | Security Property | Mechanism | Description |
 | :---- | :---- | :---- |
 | **Order Amount Privacy** | Poseidon commitment \+ ZKP | Only commitment values are stored on-chain; no third party can recover the true amount |
-| **Account Balance Privacy** | Ciphertext balance \+ ZKP | User balances are always stored in ciphertext, with correctness proofs accompanying balance updates |
-| **Secure Comparison** | SPDZ malicious-secure secret-sharing MPC \+ on-chain synthesis | Both parties can compare order sizes without revealing plaintext amounts to each other |
+| **Account Balance Privacy** | UTXO note commitments \+ Merkle tree \+ nullifiers | User funds are stored as private UTXO notes; only commitments are visible on-chain, spent via unlinkable nullifiers |
+| **Secure Comparison** | SPDZ malicious-secure MPC \+ collaborative ZK proof (co-ZK) \+ on-chain synthesis | Both parties can compare order sizes and produce a verifiable proof without revealing plaintext amounts to each other |
 | **Settlement Correctness** | On-chain ZKP verification | Difference calculations and commitment consistency are all enforced through zero-knowledge proofs on-chain |
 | **Settlement Liveness** | Timeout freeze mechanism | Delayed share submission results in a 72-hour freeze for the delaying party, ensuring both parties complete settlement promptly |
 | **Anti Front-running** | Amount invisibility | Attackers cannot perform front-running or liquidity manipulation MEV attacks by observing order amounts |
